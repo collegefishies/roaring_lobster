@@ -1,5 +1,5 @@
 from myhdl import *
-from roaring_lobster.hdl import freq_manager, hex_counter
+from roaring_lobster.hdl import hex_counter
 from icecua.interface	import RamBus
 from icecua.hdl      	import rom,ram,bussedram
 from icecua.sim      	import clkdriver
@@ -30,10 +30,11 @@ def freq_manager(
 
 	sched_addr = Signal(intbv(0,min=0,max=128))
 
-	add, sub  = [Signal(False) for _ in range(2)]
-	bin_count = Signal(intbv(0,min=0,max=10**N))
-	hex_count = Signal(intbv(0)[4*N:])
-	dig_incr  = Signal(intbv(0,min=0,max=N))
+	add, sub       	= [Signal(False) for _ in range(2)]
+	bin_count      	= Signal(intbv(0,min=0,max=10**N))
+	hex_count      	= Signal(intbv(0)[4*N:])
+	dig_incr       	= Signal(intbv(0,min=0,max=N))
+	dig_incr_offset	= Signal(intbv(0,min=0,max=N))
 
 	hex_counter_instance = hex_counter(
 			clk=clk, add=add, sub=sub,
@@ -48,7 +49,10 @@ def freq_manager(
 	def digit_to_increment():
 		''' Connect the ram fstep with 
 		a value we subtract for allowing for convergence'''
-		dig_incr.next = fstep_rambus.dout - dig_incr_offset
+		if fstep_rambus.dout >= dig_incr_offset:
+			dig_incr.next = fstep_rambus.dout - dig_incr_offset
+		else:
+			dig_incr.next = 0
 
 	@always_comb
 	def ram_read_signals():
@@ -58,6 +62,7 @@ def freq_manager(
 		holdt_rambus.raddr.next	= sched_addr
 
 	sched = enum('START','INCREMENTING','HOLDING','FINISHED')
+	state = Signal(sched.START)
 	hold_counter = Signal(intbv(0)[32:])
 	@always_seq(clk.posedge,reset)
 	def schedule_stepper():
@@ -73,28 +78,41 @@ def freq_manager(
 			if   bin_count < freq_rambus.dout:
 				add.next	= 1
 				sub.next	= 0
-				if sub == 1:
+				if sub == 1 and dig_incr_offset != N:
 					dig_incr_offset.next = dig_incr_offset + 1
+				else:
+					dig_incr_offset.next = dig_incr_offset
 			elif bin_count > freq_rambus.dout:
 				add.next	= 0
 				sub.next	= 1
-				if add == 1:
+				if add == 1 and dig_incr_offset != N:
 					dig_incr_offset.next = dig_incr_offset + 1
+				else:
+					dig_incr_offset.next = dig_incr_offset
 			else:
 				add.next  	= 0
 				sub.next  	= 0
 				state.next	= sched.HOLDING
 		elif state == sched.HOLDING:
-			hold_counter.next = hold_counter + 1
 			
-			if hold_counter == holdt_rambus.dout:
+			if hold_counter >= holdt_rambus.dout:
 				sched_addr.next = sched_addr + 1
+				hold_counter.next = 0
 				if sched_addr == sched_length - 1:
 					state.next = sched.FINISHED
 				else:
 					state.next = sched.INCREMENTING
+			else:
+				hold_counter.next = hold_counter + 1
 		elif state == sched.FINISHED:
 			hold_counter.next = 0
 			state.next = sched.FINISHED
 
-	return hex_counter_instance,digit_to_increment,ram_read_signals,schedule_stepper
+	rams = []
+
+	rams.append(bussedram(freq_rambus))
+	rams.append(bussedram(fstep_rambus))
+	rams.append(bussedram(tstep_rambus))
+	rams.append(bussedram(holdt_rambus))
+
+	return hex_counter_instance,digit_to_increment,ram_read_signals,schedule_stepper,rams
