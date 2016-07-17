@@ -19,8 +19,7 @@ def tb_hex_counter():
 	time_step = Signal(intbv(0)[32:])
 
 	hex_count = Signal(intbv(0)[4*N:])
-	bin_count = Signal(intbv(0,min=-10**N,max=10**N))
-	# bin_count = Signal(intbv(0,))
+	bin_count = Signal(intbv(0,min=0,max=10**N))
 
 	clock_driver = clkdriver(clk=clk, period=10)
 
@@ -98,8 +97,6 @@ def tb_hex_counter():
 
 		add.next = 0
 		sub.next = 0
-
-
 
 	return uut, stimulus, clock_driver
 
