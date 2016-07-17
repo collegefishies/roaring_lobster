@@ -15,6 +15,8 @@ def tb_freq_manager():
 	typ  	= intbv(0,min=0,max=3.2e9)
 	depth	= 128
 
+	hex_freq	= Signal(intbv(0)[4*N:])
+	
 	freq_rambus = RamBus(typ,depth)
 	fstep_rambus = RamBus(typ,depth)
 	tstep_rambus = RamBus(typ,depth)
@@ -28,25 +30,26 @@ def tb_freq_manager():
 	def connect_rams():
 		''' Connect the write ports,
 		and the clocks here.'''
-		freq_rambus.clk.next  	= clk
-		fstep_rambus.clk.next 	= clk
-		tstep_rambus.clk.next 	= clk
-		holdt_rambus.clk.next 	= clk
-		freq_rambus.din.next  	= din
-		fstep_rambus.din.next 	= din
-		tstep_rambus.din.next 	= din
-		holdt_rambus.din.next 	= din
-		freq_rambus.addr.next 	= addr
-		fstep_rambus.addr.next	= addr
-		tstep_rambus.addr.next	= addr
-		holdt_rambus.addr.next	= addr
-		freq_rambus.we.next   	= we
-		fstep_rambus.we.next  	= we
-		tstep_rambus.we.next  	= we
-		holdt_rambus.we.next  	= we
+		freq_rambus.clk.next   	= clk
+		fstep_rambus.clk.next  	= clk
+		tstep_rambus.clk.next  	= clk
+		holdt_rambus.clk.next  	= clk
+		freq_rambus.din.next   	= din
+		fstep_rambus.din.next  	= din
+		tstep_rambus.din.next  	= din
+		holdt_rambus.din.next  	= din
+		freq_rambus.waddr.next 	= addr
+		fstep_rambus.waddr.next	= addr
+		tstep_rambus.waddr.next	= addr
+		holdt_rambus.waddr.next	= addr
+		freq_rambus.we.next    	= we
+		fstep_rambus.we.next   	= we
+		tstep_rambus.we.next   	= we
+		holdt_rambus.we.next   	= we
 
 	uut = freq_manager(
 			clk=clk, reset=reset,
+			hex_freq=hex_freq,
 			freq_rambus=freq_rambus,
 			fstep_rambus=tstep_rambus,
 			tstep_rambus=tstep_rambus,
@@ -72,10 +75,19 @@ def tb_freq_manager():
 	def stimulus():
 		yield(500)
 		for i in range(sched_length):
-			addr.next = 0
-			din.next = int(freq[i])
-			yield delay(30)
-
+			addr.next = i
+			freq_rambus.din.next = int(freq[i])
+			fstep_rambus.din.next = int(fstep[i])
+			tstep_rambus.din.next = int(tstep[i])
+			holdt_rambus.din.next = int(holdt[i])
 			yield delay(20)
+			we.next = 1
+			yield delay(20)
+			we.next = 0
 
 	return uut, stimulus,clkdriver(clk,period=period)
+
+inst = tb_freq_manager()
+
+inst.config_sim(trace=True)
+inst.run_sim()
