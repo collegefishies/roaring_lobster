@@ -64,16 +64,6 @@ def hex_counter(
 
 	@block
 	def addsublogic():
-		''' This module determines whether or not to add/sub certain bits,
-		in the case of carry over. First we make sure we don't add/sub all
-		the bits lower than increment, then we set the increment bit to add/sub,
-		and lastly we perform the logic neccessary to determine if bits greater
-		than dig_incr need to be added
-
-		It's sensitivity list is long, this is neccessary as to allow the logic 
-		to update to_add when any part of to_add changes, as is the case
-		when performing carry logic.
-		'''
 		modules = []
 		for digit in range(N):
 
@@ -81,6 +71,16 @@ def hex_counter(
 				def logic(digit=digit):
 					@always_comb
 					def inner():
+						''' This module determines whether or not to add/sub certain bits,
+						in the case of carry over. First we make sure we don't add/sub all
+						the bits lower than increment, then we set the increment bit to add/sub,
+						and lastly we perform the logic neccessary to determine if bits greater
+						than dig_incr need to be added
+
+						It's sensitivity list is long, this is neccessary as to allow the logic 
+						to update to_add when any part of to_add changes, as is the case
+						when performing carry logic.
+						'''
 						if digit == dig_incr:
 							to_add[digit].next = 1
 							to_subtract[digit].next = 1
@@ -172,4 +172,4 @@ def hex_counter(
 	increment_amounts = tuple([10**i for i in range(N)])
 	rom_inst = rom(dout=increment,addr=dig_incr,CONTENT=increment_amounts)
 
-	return wiring,counter,addsublogic(),rom_inst,clk_driver,latch_counts
+	return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic()
