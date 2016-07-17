@@ -10,13 +10,14 @@ def hex_counter(
 	time_step,
 	reset,
 	N):
-	''' A counter module with two outputs, hex_count, bin_count, each being 
+	''' NOTE: THE OUTPUTS COME WITH A CLOCK CYCLE DELAY.
+	A counter module with two outputs, hex_count, bin_count, each being 
 	the 'decimal' in hexadecimal representation, and the other being
 	the binary representation. dig_incr is the module that determines by
 	what power of ten to increment by, i.e., hex_count.next = hex_count + 
 	10**dig_incr.
 	add, and sub are clock enables that determine whether we should add
-	or subtract.
+	or subtract. 
 	'''
 
 	#whether or not we need to subtract/add a certain digit
@@ -32,10 +33,13 @@ def hex_counter(
 	int_clk   	= Signal(False)
 	clk_p_time	= Signal(False)
 	
-	@always_comb
-	def wiring():
+	@always_seq(clk.posedge,reset)
+	def latch_counts():
 		hex_count.next = hex_int
 		bin_count.next = bin_int
+
+	@always_comb
+	def wiring():
 		if time_step == 0 or time_step == 1:
 			int_clk.next = clk
 		else:
@@ -141,4 +145,4 @@ def hex_counter(
 	increment_amounts = tuple([10**i for i in range(N)])
 	rom_inst = rom(dout=increment,addr=dig_incr,CONTENT=increment_amounts)
 
-	return wiring,counter,addsublogic,rom_inst,clk_driver
+	return wiring,counter,addsublogic,rom_inst,clk_driver,latch_counts
