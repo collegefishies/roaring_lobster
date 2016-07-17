@@ -4,8 +4,14 @@ VPATH=./hdl:./testbench:./build
 
 all: hex_counter.py tb_hex_counter.py
 
+freq_manager.py: build_freq_manager.py
+	cd ./build/ && $(PYCC) freq_manager.py
+
 hex_counter.py: build_hex_counter.py 
 	cd ./build/ && $(PYCC) build_hex_counter.py
+
+tb_freq_manager.py: freq_manager.py
+	$(PYCC) ./testbench/tb_freq_manager.py
 
 tb_hex_counter.py: hex_counter.py
 	$(PYCC) ./testbench/tb_hex_counter.py
