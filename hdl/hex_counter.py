@@ -9,7 +9,7 @@ def hex_counter(
 	dig_incr,
 	time_step,
 	reset,
-	N):
+	N=10):
 	''' NOTE: THE OUTPUTS COME WITH A CLOCK CYCLE DELAY.
 	A counter module with two outputs, hex_count, bin_count, each being 
 	the 'decimal' in hexadecimal representation, and the other being
@@ -25,21 +25,22 @@ def hex_counter(
 	to_add     	= [Signal(False) for i in range(N)]
 
 	#decomposition of the binary number we're working with
-	hex_l    	= [Signal( intbv(0,min=0,max=10) ) for i in downrange(N)]
-	hex_int  	= ConcatSignal(*reversed(hex_l))
-	bin_int  	= Signal(intbv(0,min=-10**N,max=10**N))
-	# bin_int	= Signal(intbv(0))
+	hex_l  	= [Signal(intbv(0,min=0,max=10)) for i in range(N)]
+	hex_int	= ConcatSignal(*reversed(hex_l))
+	bin_int	= Signal(intbv(0,min=0,max=10**N))
 
 	int_clk   	= Signal(False)
 	clk_p_time	= Signal(False)
 	
 	@always_seq(clk.posedge,reset)
 	def latch_counts():
+		''' Latch values on positive clock edge '''
 		hex_count.next = hex_int
 		bin_count.next = bin_int
 
 	@always_comb
 	def wiring():
+		''' Allow for time_step == 0 '''
 		if time_step == 0 or time_step == 1:
 			int_clk.next = clk
 		else:
@@ -60,7 +61,8 @@ def hex_counter(
 			clk_p_time.next = 0
 			clk_counter.next = clk_counter + 1
 
-	@always(dig_incr,*(hex_l + to_add + to_subtract))
+
+	@block
 	def addsublogic():
 		''' This module determines whether or not to add/sub certain bits,
 		in the case of carry over. First we make sure we don't add/sub all
@@ -72,16 +74,41 @@ def hex_counter(
 		to update to_add when any part of to_add changes, as is the case
 		when performing carry logic.
 		'''
+		modules = []
 		for digit in range(N):
-			if digit < dig_incr:
-				to_add[digit].next = 0
-				to_subtract[digit].next = 0
-			elif digit == dig_incr:
-				to_add[dig_incr].next = 1
-				to_subtract[dig_incr].next = 1
+
+			if digit == 0:
+				def logic(digit=digit):
+					@always_comb
+					def inner():
+						if digit == dig_incr:
+							to_add[digit].next = 1
+							to_subtract[digit].next = 1
+						else:
+							to_add[digit].next = 0
+							to_subtract[digit].next = 0
+					return inner 
 			else:
-				to_add[digit].next     	= (hex_l[digit-1] == 9) and to_add[digit-1]
-				to_subtract[digit].next	= (hex_l[digit-1] == 0) and to_subtract[digit-1]
+				def logic(digit=digit):
+					@always(dig_incr,hex_l[digit-1],to_add[digit-1],to_subtract[digit-1])
+					def inner():
+						if digit < dig_incr:
+							to_add[digit].next = 0
+							to_subtract[digit].next = 0
+						elif digit == dig_incr:
+							to_add[digit].next = 1
+							to_subtract[digit].next = 1
+						else:
+							to_add[digit].next     	= (hex_l[digit-1] == 9) and to_add[digit-1]
+							to_subtract[digit].next	= (hex_l[digit-1] == 0) and to_subtract[digit-1]
+					return inner
+			logic.func_name = 'logic_%d' % digit
+
+			logic = block(logic)
+			modules.append(logic())
+
+		return modules
+	# @always(dig_incr,*(to_add+to_subtract + hex_l))
 
 	@always_seq(int_clk.negedge, reset=reset)
 	def counter():
@@ -145,4 +172,4 @@ def hex_counter(
 	increment_amounts = tuple([10**i for i in range(N)])
 	rom_inst = rom(dout=increment,addr=dig_incr,CONTENT=increment_amounts)
 
-	return wiring,counter,addsublogic,rom_inst,clk_driver,latch_counts
+	return wiring,counter,addsublogic(),rom_inst,clk_driver,latch_counts
