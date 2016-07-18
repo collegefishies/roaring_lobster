@@ -46,11 +46,11 @@ def tb_freq_manager():
 		holdt_rambus.we.next   	= we
 
 	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
-	fstep= [6, 8, 4, 4, 6, 0]
-	tstep= [1, 1, 1, 1, 37502813, 0]
+	fstep= [6, 7, 4, 4, 6, 3]
+	tstep= [1, 1, 1, 1, 5, 3]
 	holdt= [100, 100, 100, 100, 100, 100]
 	schedule_length = len(freq)
-	schedule_length = 3
+	# schedule_length = 3
 
 	uut = freq_manager(
 			clk=clk, reset=reset,
@@ -90,10 +90,20 @@ def tb_freq_manager():
 		trigger.next = 1
 		yield delay(100)
 		trigger.next = 0
-
+		yield delay(10000)
+		trigger.next = 1
+		yield delay(50)
+		trigger.next = 0
+		yield delay(400000)
+		trigger.next = 1
+		yield delay(50)
+		trigger.next = 0
 	return uut, stimulus,clkdriver(clk,period=period), connect_rams
 
 inst = tb_freq_manager()
-
 inst.config_sim(trace=True)
 inst.run_sim(1e8)
+inst = tb_freq_manager()
+inst.convert(hdl='verilog')
+inst = tb_freq_manager()
+inst.convert(hdl='VHDL')
