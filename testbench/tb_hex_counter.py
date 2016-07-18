@@ -37,6 +37,11 @@ def tb_hex_counter():
 
 	@instance
 	def stimulus():
+		dig_incr.next = 0
+		time_step.next = 0
+		reset.next = 1
+		yield delay(10)
+		reset.next = 0
 		pass
 		yield delay(500)
 
@@ -70,8 +75,8 @@ def tb_hex_counter():
 
 		yield delay(10)
 		print "We should be zero here,"
-		print "Actually we have	(hex): %s" % hex(hex_count.val)
-		print "                	(bin): %s" %     bin_count.val
+		# print "Actually we have	(hex): %s" % hex(hex_count.val)
+		print "                  	(bin): %s" %     bin_count.val
 
 		yield delay(100)
 		
@@ -89,7 +94,7 @@ def tb_hex_counter():
 		yield delay(5000)
 
 		print "We should be at 10, we're actually at %d" % bin_count
-		print "In hex: %s" % hex(hex_count)
+		# print "In hex: %s" % hex(hex_count)
 
 		for i in range(N):
 			dig_incr.next = i
@@ -101,5 +106,8 @@ def tb_hex_counter():
 	return uut, stimulus, clock_driver
 
 inst = tb_hex_counter()
+inst.convert(hdl='verilog')
+inst = tb_hex_counter()
+inst.convert(hdl='VHDL')
 inst.config_sim(trace=True)
 inst.run_sim(1000000)
