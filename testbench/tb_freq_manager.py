@@ -31,14 +31,11 @@ def tb_freq_manager():
 	def connect_rams():
 		''' Connect the write ports,
 		and the clocks here.'''
-		freq_rambus.clk.next   	= clk
-		fstep_rambus.clk.next  	= clk
-		tstep_rambus.clk.next  	= clk
-		holdt_rambus.clk.next  	= clk
-		freq_rambus.din.next   	= din
-		fstep_rambus.din.next  	= din
-		tstep_rambus.din.next  	= din
-		holdt_rambus.din.next  	= din
+		freq_rambus.clk.next 	= clk
+		fstep_rambus.clk.next	= clk
+		tstep_rambus.clk.next	= clk
+		holdt_rambus.clk.next	= clk
+
 		freq_rambus.waddr.next 	= addr
 		fstep_rambus.waddr.next	= addr
 		tstep_rambus.waddr.next	= addr
@@ -49,10 +46,11 @@ def tb_freq_manager():
 		holdt_rambus.we.next   	= we
 
 	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
-	fstep= [6, 1, 0, 0, 7, 0]
+	fstep= [6, 8, 4, 4, 6, 0]
 	tstep= [1, 1, 1, 1, 37502813, 0]
-	holdt= [0, 0, 100, 0, 0, 0]
+	holdt= [100, 100, 100, 100, 100, 100]
 	schedule_length = len(freq)
+	schedule_length = 3
 
 	uut = freq_manager(
 			clk=clk, reset=reset,
@@ -77,12 +75,12 @@ def tb_freq_manager():
 	@instance
 	def stimulus():
 		yield delay(500)
-		for i in range(schedule_length):
+		for i in range(len(freq)):
 			addr.next = i
-			freq_rambus.dout.next = int(freq[i])
-			fstep_rambus.dout.next = int(fstep[i])
-			tstep_rambus.dout.next = int(tstep[i])
-			holdt_rambus.dout.next = int(holdt[i])
+			freq_rambus.din.next =  int(freq[i])
+			fstep_rambus.din.next = int(fstep[i])
+			tstep_rambus.din.next = int(tstep[i])
+			holdt_rambus.din.next = int(holdt[i])
 			yield delay(20)
 			we.next = 1
 			yield delay(20)
@@ -93,9 +91,9 @@ def tb_freq_manager():
 		yield delay(100)
 		trigger.next = 0
 
-	return uut, stimulus,clkdriver(clk,period=period)
+	return uut, stimulus,clkdriver(clk,period=period), connect_rams
 
 inst = tb_freq_manager()
 
 inst.config_sim(trace=True)
-inst.run_sim(1e5)
+inst.run_sim(1e8)
