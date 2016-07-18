@@ -88,29 +88,44 @@ def freq_manager(
 				state.next = sched.START
 		elif state == sched.INCREMENTING:
 			hold_counter.next = 0
-			if bin_count + incr_amount  == freq_rambus.dout and add == 1:
-				add.next = 0
-				sub.next = 0
-				dig_incr_offset.next = 0
-				state.next = sched.HOLDING
-			elif bin_count - incr_amount == freq_rambus.dout and sub == 0:
-				state.next = sched.INCREMENTING
-				add.next = 0
-				sub.next = 0
-				dig_incr_offset.next = 0
-				state.next = sched.HOLDING
-			elif bin_count > freq_rambus.dout:
-				state.next = sched.INCREMENTING
-				add.next = 0
-				sub.next = 1
-				if add == 1 and dig_incr_offset < N - 1:
-					dig_incr_offset.next = dig_incr_offset + 1
-			else: 
-				state.next = sched.INCREMENTING
+			if bin_count < freq_rambus.dout and add == 0 and sub == 0:
 				add.next = 1
 				sub.next = 0
-				if sub == 1 and dig_incr_offset < N - 1:
+				dig_incr_offset.next = 0
+			elif bin_count > freq_rambus.dout and add == 0 and sub == 0:
+				add.next = 0
+				sub.next = 1
+				dig_incr_offset.next = 0
+			elif bin_count < freq_rambus.dout and add == 1 and sub == 0:
+				if bin_count + incr_amount > freq_rambus.dout:
+					add.next = 0
+					sub.next = 1
 					dig_incr_offset.next = dig_incr_offset + 1
+				elif bin_count + incr_amount == freq_rambus.dout:
+					add.next = 0 
+					sub.next = 0
+					state.next = sched.HOLDING
+				else:
+					add.next = 1
+					sub.next = 0
+			elif bin_count < freq_rambus.dout and add == 0 and sub == 1:
+				add.next = 1
+				sub.next = 0
+			elif bin_count > freq_rambus.dout and add == 0 and sub == 1:
+				if bin_count - incr_amount < freq_rambus.dout:
+					add.next = 1
+					sub.next = 0
+					dig_incr_offset.next = dig_incr_offset + 1
+				elif bin_count - incr_amount == freq_rambus.dout:
+					add.next = 0
+					sub.next = 0
+					state.next = sched.HOLDING
+				else:
+					add.next = 0
+					sub.next = 1
+			else: #bin_count > freq_rambus.dout and add == 1 and sub == 0
+			      sub.next = 1
+			      add.next = 0
 		elif state == sched.HOLDING:
 			if hold_counter >= holdt_rambus.dout:
 				sched_addr.next = sched_addr + 1
