@@ -31,7 +31,7 @@ def freq_manager(
 	sched_addr = Signal(intbv(0,min=0,max=128))
 
 	add, sub       	= [Signal(False) for _ in range(2)]
-	bin_count      	= Signal(intbv(0,min=0,max=10**N))
+	bin_count      	= Signal(intbv(0,min=-10**N+1,max=10**N+1))
 	hex_count      	= Signal(intbv(0)[4*N:])
 	dig_incr       	= Signal(intbv(0,min=0,max=N))
 	dig_incr_offset	= Signal(intbv(0,min=0,max=N))
@@ -74,7 +74,7 @@ def freq_manager(
 	state = Signal(sched.START)
 	hold_counter = Signal(intbv(0)[32:])
 	incr_amount = Signal(intbv(0,min=0,max=10**N))
-	@always_seq(clk.posedge,reset)
+	@always_seq(clk.negedge,reset)
 	def schedule_stepper():
 		if state == sched.START:
 			sched_addr.next     	= 0
@@ -88,7 +88,11 @@ def freq_manager(
 				state.next = sched.START
 		elif state == sched.INCREMENTING:
 			hold_counter.next = 0
-			if bin_count < freq_rambus.dout and add == 0 and sub == 0:
+			if bin_count == freq_rambus.dout:
+				add.next = 0
+				sub.next = 0
+				state.next = sched.HOLDING
+			elif bin_count < freq_rambus.dout and add == 0 and sub == 0:
 				add.next = 1
 				sub.next = 0
 				dig_incr_offset.next = 0
@@ -112,11 +116,11 @@ def freq_manager(
 				add.next = 1
 				sub.next = 0
 			elif bin_count > freq_rambus.dout and add == 0 and sub == 1:
-				if bin_count - incr_amount < freq_rambus.dout:
+				if bin_count < freq_rambus.dout + incr_amount:
 					add.next = 1
 					sub.next = 0
 					dig_incr_offset.next = dig_incr_offset + 1
-				elif bin_count - incr_amount == freq_rambus.dout:
+				elif bin_count == freq_rambus.dout + incr_amount:
 					add.next = 0
 					sub.next = 0
 					state.next = sched.HOLDING
@@ -143,6 +147,8 @@ def freq_manager(
 			sub.next            	= 0
 			hold_counter.next   	= 0
 			state.next = sched.FINISHED
+			if trigger == 1:
+				state.next = sched.START
 
 	rams = []
 
