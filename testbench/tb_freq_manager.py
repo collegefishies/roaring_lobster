@@ -46,7 +46,7 @@ def tb_freq_manager():
 		holdt_rambus.we.next   	= we
 
 	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
-	fstep= [6, 7, 4, 4, 6, 3]
+	fstep= [6, 7, 4, 4, 6, 6]
 	tstep= [1, 1, 1, 1, 5, 3]
 	holdt= [100, 100, 100, 100, 100, 100]
 	schedule_length = len(freq)
