@@ -5,6 +5,7 @@ from icecua.hdl      	import rom,ram,bussedram
 from icecua.sim      	import clkdriver
 
 period=10
+N=9
 
 @block
 def tb_freq_manager():
@@ -47,11 +48,17 @@ def tb_freq_manager():
 		tstep_rambus.we.next   	= we
 		holdt_rambus.we.next   	= we
 
+	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
+	fstep= [6, 1, 0, 0, 7, 0]
+	tstep= [1, 1, 1, 1, 37502813, 0]
+	holdt= [0, 0, 100, 0, 0, 0]
+	schedule_length = len(freq)
+
 	uut = freq_manager(
 			clk=clk, reset=reset,
 			hex_freq=hex_freq,
 			freq_rambus=freq_rambus,
-			fstep_rambus=tstep_rambus,
+			fstep_rambus=fstep_rambus,
 			tstep_rambus=tstep_rambus,
 			holdt_rambus=holdt_rambus,
 			sched_length=schedule_length,
@@ -63,31 +70,32 @@ def tb_freq_manager():
 	#flawless reset functionality, 
 	#restart the schedule on trigger,
 	#even halfway through
-	#and automatically cycle through the schedule,
+	#and automatically cycle through the sche1dule,
 	#it should also have an input port for knowing
 	#how long the input schedule is.
 	
-	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
-	fstep= [6, 1, 0, 0, 7, -1]
-	tstep= [1, 1, 1, 1, 37502813, -1]
-	holdt= [0, 0, 0, 0, 0, -1]
 	@instance
 	def stimulus():
-		yield(500)
-		for i in range(sched_length):
+		yield delay(500)
+		for i in range(schedule_length):
 			addr.next = i
-			freq_rambus.din.next = int(freq[i])
-			fstep_rambus.din.next = int(fstep[i])
-			tstep_rambus.din.next = int(tstep[i])
-			holdt_rambus.din.next = int(holdt[i])
+			freq_rambus.dout.next = int(freq[i])
+			fstep_rambus.dout.next = int(fstep[i])
+			tstep_rambus.dout.next = int(tstep[i])
+			holdt_rambus.dout.next = int(holdt[i])
 			yield delay(20)
 			we.next = 1
 			yield delay(20)
 			we.next = 0
+
+		yield delay(20)
+		trigger.next = 1
+		yield delay(100)
+		trigger.next = 0
 
 	return uut, stimulus,clkdriver(clk,period=period)
 
 inst = tb_freq_manager()
 
 inst.config_sim(trace=True)
-inst.run_sim()
+inst.run_sim(1e5)

@@ -46,6 +46,10 @@ def freq_manager(
 		)
 
 	@always_comb
+	def wiring():
+		hex_freq.next = hex_count
+
+	@always_comb
 	def digit_to_increment():
 		''' Connect the ram fstep with 
 		a value we subtract for allowing for convergence'''
@@ -56,6 +60,11 @@ def freq_manager(
 
 	@always_comb
 	def ram_read_signals():
+		# freq_rambus.clk.next 	= clk
+		# fstep_rambus.clk.next	= clk
+		# tstep_rambus.clk.next	= clk
+		# holdt_rambus.clk.next	= clk
+
 		freq_rambus.raddr.next 	= sched_addr
 		fstep_rambus.raddr.next	= sched_addr
 		tstep_rambus.raddr.next	= sched_addr
@@ -64,6 +73,7 @@ def freq_manager(
 	sched = enum('START','INCREMENTING','HOLDING','FINISHED')
 	state = Signal(sched.START)
 	hold_counter = Signal(intbv(0)[32:])
+	incr_amount = Signal(intbv(0,min=0,max=10**N))
 	@always_seq(clk.posedge,reset)
 	def schedule_stepper():
 		if state == sched.START:
@@ -74,27 +84,34 @@ def freq_manager(
 			hold_counter.next   	= 0
 			if trigger == 1:
 				state.next = sched.INCREMENTING
-		elif state == sched.INCREMENTING:
-			if   bin_count < freq_rambus.dout:
-				add.next	= 1
-				sub.next	= 0
-				if sub == 1 and dig_incr_offset != N:
-					dig_incr_offset.next = dig_incr_offset + 1
-				else:
-					dig_incr_offset.next = dig_incr_offset
-			elif bin_count > freq_rambus.dout:
-				add.next	= 0
-				sub.next	= 1
-				if add == 1 and dig_incr_offset != N:
-					dig_incr_offset.next = dig_incr_offset + 1
-				else:
-					dig_incr_offset.next = dig_incr_offset
 			else:
-				add.next  	= 0
-				sub.next  	= 0
-				state.next	= sched.HOLDING
+				state.next = sched.START
+		elif state == sched.INCREMENTING:
+			hold_counter.next = 0
+			if bin_count + incr_amount  == freq_rambus.dout and add == 1:
+				add.next = 0
+				sub.next = 0
+				dig_incr_offset.next = 0
+				state.next = sched.HOLDING
+			elif bin_count - incr_amount == freq_rambus.dout and sub == 0:
+				state.next = sched.INCREMENTING
+				add.next = 0
+				sub.next = 0
+				dig_incr_offset.next = 0
+				state.next = sched.HOLDING
+			elif bin_count > freq_rambus.dout:
+				state.next = sched.INCREMENTING
+				add.next = 0
+				sub.next = 1
+				if add == 1 and dig_incr_offset < N - 1:
+					dig_incr_offset.next = dig_incr_offset + 1
+			else: 
+				state.next = sched.INCREMENTING
+				add.next = 1
+				sub.next = 0
+				if sub == 1 and dig_incr_offset < N - 1:
+					dig_incr_offset.next = dig_incr_offset + 1
 		elif state == sched.HOLDING:
-			
 			if hold_counter >= holdt_rambus.dout:
 				sched_addr.next = sched_addr + 1
 				hold_counter.next = 0
@@ -104,8 +121,12 @@ def freq_manager(
 					state.next = sched.INCREMENTING
 			else:
 				hold_counter.next = hold_counter + 1
-		elif state == sched.FINISHED:
-			hold_counter.next = 0
+		else: # state == sched.FINISHED:
+			sched_addr.next     	= 0
+			dig_incr_offset.next	= 0
+			add.next            	= 0
+			sub.next            	= 0
+			hold_counter.next   	= 0
 			state.next = sched.FINISHED
 
 	rams = []
@@ -115,4 +136,6 @@ def freq_manager(
 	rams.append(bussedram(tstep_rambus))
 	rams.append(bussedram(holdt_rambus))
 
-	return hex_counter_instance,digit_to_increment,ram_read_signals,schedule_stepper,rams
+	rams.append(rom(dout=incr_amount,addr=dig_incr,CONTENT=tuple([10**i for i in range(N)])))
+
+	return hex_counter_instance,digit_to_increment,ram_read_signals,schedule_stepper,rams,wiring
