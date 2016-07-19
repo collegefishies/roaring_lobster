@@ -45,11 +45,24 @@ def tb_freq_manager():
 		tstep_rambus.we.next   	= we
 		holdt_rambus.we.next   	= we
 
-	freq = [0, 25400000.0, 30000000.0, 29000000.0, 10000000.0, 20000000.0]
-	fstep= [6, 7, 4, 4, 6, 6]
-	tstep= [1, 1, 1, 1, 5, 3]
-	holdt= [100, 100, 100, 100, 100, 100]
-	schedule_length = len(freq)
+	freq_t= (20000000	, 25400000	, 30000000	, 29000000	, 10000000	, 20000000)
+	fstep_t= (6      	, 7       	, 5       	, 5       	, 6       	, 6)
+	tstep_t= (1      	, 1       	, 1       	, 1       	, 5       	, 3)
+	holdt_t= (100    	, 100     	, 100     	, 100     	, 100     	, 100)
+
+	freq 	= Signal(intbv(0,min=0,max=3.2e9))
+	fstep	= Signal(intbv(0,min=0,max=3.2e9))
+	tstep	= Signal(intbv(0,min=0,max=3.2e9))
+	holdt	= Signal(intbv(0,min=0,max=3.2e9))
+
+	rom_addr = Signal(intbv(0,min=0,max=depth))
+	roms = [
+		rom(freq,rom_addr,freq_t),
+		rom(fstep,rom_addr,fstep_t),
+		rom(tstep,rom_addr,tstep_t),
+		rom(holdt,rom_addr,holdt_t)
+	]
+	schedule_length = len(freq_t)
 	# schedule_length = 3
 
 	uut = freq_manager(
@@ -74,18 +87,38 @@ def tb_freq_manager():
 	
 	@instance
 	def stimulus():
+		reset.next = 0
+		addr.next = 0
+		rom_addr.next = 0
+		we.next = 0
+		trigger.next = 0
+		freq_rambus.din.next =  0
+		fstep_rambus.din.next = 0
+		tstep_rambus.din.next = 0
+		holdt_rambus.din.next = 0
+		yield delay(30)
+		reset.next = 1
+
+		yield delay(30)
+		reset.next = 0
+
 		yield delay(500)
-		for i in range(len(freq)):
+		for i in range(len(freq_t)):
+			rom_addr.next = i
 			addr.next = i
-			freq_rambus.din.next =  int(freq[i])
-			fstep_rambus.din.next = int(fstep[i])
-			tstep_rambus.din.next = int(tstep[i])
-			holdt_rambus.din.next = int(holdt[i])
+			freq_rambus.din.next =  int(freq)
+			fstep_rambus.din.next = int(fstep)
+			tstep_rambus.din.next = int(tstep)
+			holdt_rambus.din.next = int(holdt)
 			yield delay(20)
 			we.next = 1
 			yield delay(20)
 			we.next = 0
 
+		yield delay(50)
+		reset.next = 1 
+		yield delay(50)
+		reset.next = 0
 		yield delay(20)
 		trigger.next = 1
 		yield delay(100)
@@ -93,16 +126,16 @@ def tb_freq_manager():
 		yield delay(10000)
 		trigger.next = 1
 		yield delay(50)
-		trigger.next = 0
+		# trigger.next = 0
 		yield delay(400000)
 		trigger.next = 1
 		yield delay(50)
-		trigger.next = 0
-	return uut, stimulus,clkdriver(clk,period=period), connect_rams
+		# trigger.next = 0
+	return uut, stimulus,clkdriver(clk,period=period), connect_rams,roms
 
 inst = tb_freq_manager()
 inst.config_sim(trace=True)
-inst.run_sim(1e8)
+inst.run_sim(5e5)
 inst = tb_freq_manager()
 inst.convert(hdl='verilog')
 inst = tb_freq_manager()
