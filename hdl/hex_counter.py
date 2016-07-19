@@ -24,14 +24,6 @@ def hex_counter(
 	to_subtract	= [Signal(False) for i in range(N)]
 	to_add     	= [Signal(False) for i in range(N)]
 
-	if __debug__:
-		@instance
-		def set_init():
-			yield delay(1)
-			for i in range(N):
-				to_subtract[i].next = 0
-				to_add[i].next = 0
-
 	#decomposition of the binary number we're working with
 	hex_l  	= [Signal(intbv(0,min=0,max=10)) for i in range(N)]
 	hex_int	= ConcatSignal(*reversed(hex_l))
@@ -181,7 +173,4 @@ def hex_counter(
 	increment_amounts = tuple([10**i for i in range(N)])
 	rom_inst = rom(dout=increment,addr=dig_incr,CONTENT=increment_amounts)
 
-	if __debug__:
-		return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic(),set_init
-	else:
-		return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic()
+	return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic()
