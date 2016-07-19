@@ -24,6 +24,14 @@ def hex_counter(
 	to_subtract	= [Signal(False) for i in range(N)]
 	to_add     	= [Signal(False) for i in range(N)]
 
+	if __debug__:
+		@instance
+		def set_init():
+			yield delay(1)
+			for i in range(N):
+				to_subtract[i].next = 0
+				to_add[i].next = 0
+
 	#decomposition of the binary number we're working with
 	hex_l  	= [Signal(intbv(0,min=0,max=10)) for i in range(N)]
 	hex_int	= ConcatSignal(*reversed(hex_l))
@@ -69,7 +77,7 @@ def hex_counter(
 
 			if digit == 0:
 				def logic(digit=digit):
-					@always_comb
+					@always(dig_incr,add,sub)
 					def inner():
 						''' This module determines whether or not to add/sub certain bits,
 						in the case of carry over. First we make sure we don't add/sub all
@@ -81,16 +89,17 @@ def hex_counter(
 						to update to_add when any part of to_add changes, as is the case
 						when performing carry logic.
 						'''
+						digit = 0
 						if digit == dig_incr:
 							to_add[digit].next = 1
 							to_subtract[digit].next = 1
-						else:
+						else: #dig_incr > digit
 							to_add[digit].next = 0
 							to_subtract[digit].next = 0
 					return inner 
 			else:
 				def logic(digit=digit):
-					@always(dig_incr,hex_l[digit-1],to_add[digit-1],to_subtract[digit-1])
+					@always(dig_incr,hex_l[digit-1],to_add[digit-1],to_subtract[digit-1],add,sub)
 					def inner():
 						if digit < dig_incr:
 							to_add[digit].next = 0
@@ -172,4 +181,7 @@ def hex_counter(
 	increment_amounts = tuple([10**i for i in range(N)])
 	rom_inst = rom(dout=increment,addr=dig_incr,CONTENT=increment_amounts)
 
-	return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic()
+	if __debug__:
+		return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic(),set_init
+	else:
+		return wiring,counter,rom_inst,clk_driver,latch_counts,addsublogic()
